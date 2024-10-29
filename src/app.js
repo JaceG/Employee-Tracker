@@ -3,6 +3,9 @@ const {
 	viewAllDepartments,
 	viewAllRoles,
 	viewAllEmployees,
+	viewEmployeesByDepartment,
+	viewEmployeesByManager,
+	viewDepartmentBudget,
 	addDepartment,
 	addRole,
 	addEmployee,
@@ -20,6 +23,9 @@ const mainMenu = () => {
 					'View all departments',
 					'View all roles',
 					'View all employees',
+					'View employees by manager',
+					'View employees by department',
+					'View total utilized budget of a department',
 					'Add a department',
 					'Add a role',
 					'Add an employee',
@@ -38,6 +44,15 @@ const mainMenu = () => {
 				case 'View all employees':
 					viewAllEmployees().then(mainMenu);
 					break;
+				case 'View employees by manager':
+					viewEmployeesByManagerPrompt();
+					break;
+				case 'View employees by department':
+					viewEmployeesByDepartmentPrompt();
+					break;
+				case 'View total utilized budget of a department':
+					viewDepartmentBudgetPrompt();
+					break;
 				case 'Add a department':
 					addDepartmentPrompt();
 					break;
@@ -54,7 +69,88 @@ const mainMenu = () => {
 		});
 };
 
-// Add Department Prompt
+// Prompt to view employees by manager
+const viewEmployeesByManagerPrompt = () => {
+	viewAllEmployees().then((employees) => {
+		const managerChoices = employees.map((manager) => ({
+			name: `${manager.first_name} ${manager.last_name}`,
+			value: manager.id,
+		}));
+
+		inquirer
+			.prompt([
+				{
+					type: 'list',
+					name: 'manager_id',
+					message: 'Select a manager to view their employees:',
+					choices: managerChoices,
+				},
+			])
+			.then((answer) => {
+				viewEmployeesByManager(answer.manager_id).then(mainMenu);
+			})
+			.catch((err) => {
+				console.error('Error selecting manager:', err);
+				mainMenu();
+			});
+	});
+};
+
+// Prompt to view employees by department
+const viewEmployeesByDepartmentPrompt = () => {
+	viewAllDepartments().then((departments) => {
+		const departmentChoices = departments.map((dept) => ({
+			name: dept.name,
+			value: dept.id,
+		}));
+
+		inquirer
+			.prompt([
+				{
+					type: 'list',
+					name: 'department_id',
+					message: 'Select a department to view its employees:',
+					choices: departmentChoices,
+				},
+			])
+			.then((answer) => {
+				viewEmployeesByDepartment(answer.department_id).then(mainMenu);
+			})
+			.catch((err) => {
+				console.error('Error selecting department:', err);
+				mainMenu();
+			});
+	});
+};
+
+// Prompt to view total utilized budget of a department
+const viewDepartmentBudgetPrompt = () => {
+	viewAllDepartments().then((departments) => {
+		const departmentChoices = departments.map((dept) => ({
+			name: dept.name,
+			value: dept.id,
+		}));
+
+		inquirer
+			.prompt([
+				{
+					type: 'list',
+					name: 'department_id',
+					message: 'Select a department to view its total budget:',
+					choices: departmentChoices,
+				},
+			])
+			.then((answer) => {
+				viewDepartmentBudget(answer.department_id).then(mainMenu);
+			})
+			.catch((err) => {
+				console.error('Error selecting department:', err);
+				mainMenu();
+			});
+	});
+};
+
+// Add department prompt
 const addDepartmentPrompt = () => {
 	inquirer
 		.prompt([
@@ -67,187 +163,105 @@ const addDepartmentPrompt = () => {
 			},
 		])
 		.then((answer) => {
-			addDepartment(answer.name).then(() => {
-				console.log(`Department '${answer.name}' added successfully.`);
-				mainMenu();
+			addDepartment(answer.name).then(mainMenu);
+		});
+};
+
+// Add role prompt
+const addRolePrompt = () => {
+	viewAllDepartments().then((departments) => {
+		const departmentChoices = departments.map((dept) => ({
+			name: dept.name,
+			value: dept.id,
+		}));
+
+		inquirer
+			.prompt([
+				{
+					type: 'input',
+					name: 'title',
+					message: 'Enter the title of the new role:',
+					validate: (input) =>
+						input ? true : 'Role title cannot be empty.',
+				},
+				{
+					type: 'input',
+					name: 'salary',
+					message: 'Enter the salary for the new role:',
+					validate: (input) =>
+						!isNaN(input) && input
+							? true
+							: 'Please enter a valid number.',
+				},
+				{
+					type: 'list',
+					name: 'department_id',
+					message: 'Select the department for the new role:',
+					choices: departmentChoices,
+				},
+			])
+			.then((role) => {
+				addRole(role.title, role.salary, role.department_id).then(
+					mainMenu
+				);
 			});
-		});
+	});
 };
 
-// Add Role Prompt
-const addRolePrompt = (departmentChoices, employeeData) => {
-	if (!departmentChoices) {
-		viewAllDepartments().then((departments) => {
-			departmentChoices = departments.map((dept) => ({
-				name: dept.name,
-				value: dept.id,
-			}));
-
-			departmentChoices.push({
-				name: 'Create a new department',
-				value: 'new_department',
-			});
-
-			// Proceed to role creation prompt
-			createRolePrompt(departmentChoices, employeeData);
-		});
-	} else {
-		createRolePrompt(departmentChoices, employeeData);
-	}
-};
-
-// Create Role Prompt (used internally by addRolePrompt)
-const createRolePrompt = (departmentChoices, employeeData) => {
-	inquirer
-		.prompt([
-			{
-				type: 'input',
-				name: 'title',
-				message: 'Enter the title of the new role:',
-				validate: (input) =>
-					input ? true : 'Role title cannot be empty.',
-			},
-			{
-				type: 'input',
-				name: 'salary',
-				message: 'Enter the salary for the new role:',
-				validate: (input) =>
-					!isNaN(input) && input
-						? true
-						: 'Please enter a valid number.',
-			},
-			{
-				type: 'list',
-				name: 'department_id',
-				message:
-					'Select the department for the new role or create a new one:',
-				choices: departmentChoices,
-			},
-		])
-		.then((roleAnswers) => {
-			if (roleAnswers.department_id === 'new_department') {
-				addDepartmentPrompt(roleAnswers, employeeData);
-			} else {
-				addRole(
-					roleAnswers.title,
-					roleAnswers.salary,
-					roleAnswers.department_id
-				).then((roleId) => {
-					employeeData.role_id = roleId; // Set the new role ID
-					selectManagerAndAddEmployee(employeeData, []);
-				});
-			}
-		});
-};
-
-// Add Employee Prompt
+// Add employee prompt
 const addEmployeePrompt = () => {
 	viewAllRoles().then((roles) => {
-		let roleChoices = roles.map((role) => ({
+		const roleChoices = roles.map((role) => ({
 			name: role.title,
 			value: role.id,
 		}));
 
-		roleChoices.push({ name: 'Create a new role', value: 'new_role' });
-
-		viewAllDepartments().then((departments) => {
-			let departmentChoices = departments.map((dept) => ({
-				name: dept.name,
-				value: dept.id,
+		viewAllEmployees().then((managers) => {
+			const managerChoices = managers.map((manager) => ({
+				name: `${manager.first_name} ${manager.last_name}`,
+				value: manager.id,
 			}));
+			managerChoices.push({ name: 'None', value: null });
 
-			departmentChoices.push({
-				name: 'Create a new department',
-				value: 'new_department',
-			});
-
-			viewAllEmployees().then((managers) => {
-				const managerChoices = managers.map((manager) => ({
-					name: `${manager.first_name} ${manager.last_name}`,
-					value: manager.id,
-				}));
-				managerChoices.push({ name: 'None', value: null });
-
-				inquirer
-					.prompt([
-						{
-							type: 'input',
-							name: 'firstName',
-							message: "Enter the employee's first name:",
-							validate: (input) =>
-								input ? true : 'First name cannot be empty.',
-						},
-						{
-							type: 'input',
-							name: 'lastName',
-							message: "Enter the employee's last name:",
-							validate: (input) =>
-								input ? true : 'Last name cannot be empty.',
-						},
-						{
-							type: 'list',
-							name: 'role_id',
-							message:
-								"Select the employee's role or create a new one:",
-							choices: roleChoices,
-						},
-					])
-					.then((answers) => {
-						if (answers.role_id === 'new_role') {
-							addRolePrompt(departmentChoices, answers);
-						} else {
-							selectManagerAndAddEmployee(
-								answers,
-								managerChoices
-							);
-						}
-					});
-			});
+			inquirer
+				.prompt([
+					{
+						type: 'input',
+						name: 'firstName',
+						message: "Enter the employee's first name:",
+						validate: (input) =>
+							input ? true : 'First name cannot be empty.',
+					},
+					{
+						type: 'input',
+						name: 'lastName',
+						message: "Enter the employee's last name:",
+						validate: (input) =>
+							input ? true : 'Last name cannot be empty.',
+					},
+					{
+						type: 'list',
+						name: 'role_id',
+						message: "Select the employee's role:",
+						choices: roleChoices,
+					},
+					{
+						type: 'list',
+						name: 'manager_id',
+						message: "Select the employee's manager (if any):",
+						choices: managerChoices,
+					},
+				])
+				.then((employee) => {
+					addEmployee(
+						employee.firstName,
+						employee.lastName,
+						employee.role_id,
+						employee.manager_id
+					).then(mainMenu);
+				});
 		});
 	});
-};
-
-// Select Manager and Add Employee
-const selectManagerAndAddEmployee = (employeeData, managerChoices) => {
-	// Add a "No Manager" option if the list is empty or explicitly as a choice
-	if (
-		managerChoices.length === 0 ||
-		!managerChoices.some((choice) => choice.name === 'None')
-	) {
-		managerChoices.push({ name: 'None', value: null });
-	}
-
-	inquirer
-		.prompt([
-			{
-				type: 'list',
-				name: 'manager_id',
-				message: 'Select the manager (if any):',
-				choices: managerChoices,
-			},
-		])
-		.then((managerAnswer) => {
-			addEmployee(
-				employeeData.firstName,
-				employeeData.lastName,
-				employeeData.role_id,
-				managerAnswer.manager_id
-			)
-				.then(() => {
-					console.log(
-						`Employee '${employeeData.firstName} ${employeeData.lastName}' added successfully.`
-					);
-					mainMenu();
-				})
-				.catch((err) => {
-					console.error('Error adding employee:', err);
-					mainMenu();
-				});
-		})
-		.catch((err) => {
-			console.error('Error in manager selection:', err);
-			mainMenu();
-		});
 };
 
 // Start the application

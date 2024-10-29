@@ -46,32 +46,110 @@ const viewAllEmployees = async () => {
 	}
 };
 
-// Add a department and return its ID
+// View employees by department
+const viewEmployeesByDepartment = async (department_id) => {
+	try {
+		const res = await client.query(
+			`
+			SELECT e.id, e.first_name, e.last_name, r.title, r.salary 
+			FROM employee e
+			JOIN role r ON e.role_id = r.id
+			WHERE r.department_id = $1
+		`,
+			[department_id]
+		);
+
+		if (res.rows.length > 0) {
+			console.table(res.rows);
+		} else {
+			console.log('No employees found for the selected department.');
+		}
+		return res.rows;
+	} catch (err) {
+		console.error('Failed to retrieve employees by department:', err);
+		return [];
+	}
+};
+
+// View employees by manager
+const viewEmployeesByManager = async (manager_id) => {
+	try {
+		const res = await client.query(
+			`
+			SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary
+			FROM employee e
+			JOIN role r ON e.role_id = r.id
+			JOIN department d ON r.department_id = d.id
+			WHERE e.manager_id = $1
+		`,
+			[manager_id]
+		);
+
+		if (res.rows.length > 0) {
+			console.table(res.rows);
+		} else {
+			console.log('No employees found for the selected manager.');
+		}
+		return res.rows;
+	} catch (err) {
+		console.error('Failed to retrieve employees by manager:', err);
+		return [];
+	}
+};
+
+// View total utilized budget of a department
+const viewDepartmentBudget = async (department_id) => {
+	try {
+		const res = await client.query(
+			`
+			SELECT d.name AS department, SUM(r.salary) AS total_budget
+			FROM employee e
+			JOIN role r ON e.role_id = r.id
+			JOIN department d ON r.department_id = d.id
+			WHERE d.id = $1
+			GROUP BY d.name
+		`,
+			[department_id]
+		);
+
+		if (res.rows.length > 0) {
+			console.log(
+				`Total utilized budget for ${res.rows[0].department}: $${res.rows[0].total_budget}`
+			);
+		} else {
+			console.log('No employees found for the selected department.');
+		}
+		return res.rows;
+	} catch (err) {
+		console.error('Failed to retrieve total utilized budget:', err);
+		return [];
+	}
+};
+
+// Add a department
 const addDepartment = async (name) => {
 	try {
 		const res = await client.query(
 			'INSERT INTO department (name) VALUES ($1) RETURNING id',
 			[name]
 		);
-		const newDepartmentId = res.rows[0].id;
 		console.log(`Department '${name}' added successfully.`);
-		return newDepartmentId;
+		return res.rows[0].id;
 	} catch (err) {
 		console.error('Failed to add department:', err);
 		throw err;
 	}
 };
 
-// Add a role and return its ID
+// Add a role
 const addRole = async (title, salary, department_id) => {
 	try {
 		const res = await client.query(
 			'INSERT INTO role (title, salary, department_id) VALUES ($1, $2, $3) RETURNING id',
 			[title, salary, department_id]
 		);
-		const newRoleId = res.rows[0].id;
 		console.log(`Role '${title}' added successfully.`);
-		return newRoleId;
+		return res.rows[0].id;
 	} catch (err) {
 		console.error('Failed to add role:', err);
 		throw err;
@@ -89,11 +167,11 @@ const addEmployee = async (firstName, lastName, role_id, manager_id) => {
 	} catch (err) {
 		if (err.constraint === 'employee_role_id_fkey') {
 			console.error(
-				`Error: Role ID ${role_id} does not exist. Please ensure you enter a valid role ID.`
+				`Error: Role ID ${role_id} does not exist. Please enter a valid role ID.`
 			);
 		} else if (err.constraint === 'employee_manager_id_fkey') {
 			console.error(
-				`Error: Manager ID ${manager_id} does not exist. Please ensure you enter a valid manager ID.`
+				`Error: Manager ID ${manager_id} does not exist. Please enter a valid manager ID.`
 			);
 		} else {
 			console.error('Failed to add employee:', err);
@@ -117,22 +195,16 @@ const updateEmployeeRole = async (employee_id, new_role_id) => {
 // Delete a department and cascade delete roles and employees
 const deleteDepartmentCascade = async (department_id) => {
 	try {
-		// Delete employees linked to roles in the department
 		await client.query(
 			'DELETE FROM employee WHERE role_id IN (SELECT id FROM role WHERE department_id = $1)',
 			[department_id]
 		);
-
-		// Delete roles linked to the department
 		await client.query('DELETE FROM role WHERE department_id = $1', [
 			department_id,
 		]);
-
-		// Delete the department itself
 		await client.query('DELETE FROM department WHERE id = $1', [
 			department_id,
 		]);
-
 		console.log(
 			'Department, its roles, and associated employees deleted successfully.'
 		);
@@ -165,6 +237,9 @@ module.exports = {
 	viewAllDepartments,
 	viewAllRoles,
 	viewAllEmployees,
+	viewEmployeesByDepartment,
+	viewEmployeesByManager,
+	viewDepartmentBudget,
 	addDepartment,
 	addRole,
 	addEmployee,
