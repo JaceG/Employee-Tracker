@@ -1,10 +1,15 @@
+const { EMPLOYEE, DEPARTMENT, ROLE } = require('./constants');
 const client = require('./db');
 
 // View all departments
-const viewAllDepartments = async () => {
+const viewAllDepartments = async (show = true) => {
 	try {
-		const res = await client.query('SELECT * FROM department');
-		console.table(res.rows);
+		const res = await client.query(
+			`SELECT id AS ${DEPARTMENT.id}, name AS ${DEPARTMENT.department} FROM department`
+		);
+		if (show) {
+			console.table(res.rows);
+		}
 		return res.rows;
 	} catch (err) {
 		console.error('Failed to retrieve departments:', err);
@@ -15,11 +20,12 @@ const viewAllDepartments = async () => {
 // View all roles
 const viewAllRoles = async () => {
 	try {
-		const res = await client.query(`
-			SELECT role.id, role.title, department.name AS department, role.salary 
-			FROM role 
+		const res = await client.query(
+			`SELECT role.id AS ${ROLE.id}, role.title AS ${ROLE.role}, department.name AS ${ROLE.department}, role.salary AS ${ROLE.salary}
+			FROM role
 			JOIN department ON role.department_id = department.id
-		`);
+		`
+		);
 		console.table(res.rows);
 		return res.rows;
 	} catch (err) {
@@ -32,7 +38,7 @@ const viewAllRoles = async () => {
 const viewAllEmployees = async () => {
 	try {
 		const res = await client.query(`
-			SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary, m.first_name AS manager 
+			SELECT e.id AS ${EMPLOYEE.id}, e.first_name AS ${EMPLOYEE.first}, e.last_name AS ${EMPLOYEE.last}, r.title AS ${EMPLOYEE.role}, d.name AS ${EMPLOYEE.name}, r.salary AS ${EMPLOYEE.salary}, m.first_name AS ${EMPLOYEE.manager}
 			FROM employee e 
 			JOIN role r ON e.role_id = r.id 
 			JOIN department d ON r.department_id = d.id 
@@ -51,7 +57,7 @@ const viewEmployeesByDepartment = async (department_id) => {
 	try {
 		const res = await client.query(
 			`
-			SELECT e.id, e.first_name, e.last_name, r.title, r.salary 
+			SELECT e.id, e.first_name AS first, e.last_name AS last, r.title AS role, r.salary 
 			FROM employee e
 			JOIN role r ON e.role_id = r.id
 			WHERE r.department_id = $1
@@ -76,7 +82,7 @@ const viewEmployeesByManager = async (manager_id) => {
 	try {
 		const res = await client.query(
 			`
-			SELECT e.id, e.first_name, e.last_name, r.title, d.name AS department, r.salary
+			SELECT e.id, e.first_name AS first, e.last_name AS last, r.title AS role, d.name AS department, r.salary
 			FROM employee e
 			JOIN role r ON e.role_id = r.id
 			JOIN department d ON r.department_id = d.id

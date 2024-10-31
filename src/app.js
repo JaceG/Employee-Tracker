@@ -9,7 +9,11 @@ const {
 	addDepartment,
 	addRole,
 	addEmployee,
+	deleteDepartmentCascade,
+	deleteRole,
+	deleteEmployee,
 } = require('./queries');
+const { EMPLOYEE, DEPARTMENT, ROLE } = require('./constants');
 
 // Main menu function
 const mainMenu = () => {
@@ -29,6 +33,9 @@ const mainMenu = () => {
 					'Add a department',
 					'Add a role',
 					'Add an employee',
+					'Delete a department',
+					'Delete a role',
+					'Delete an employee',
 					'Exit',
 				],
 			},
@@ -62,6 +69,15 @@ const mainMenu = () => {
 				case 'Add an employee':
 					addEmployeePrompt();
 					break;
+				case 'Delete a department':
+					deleteDepartmentPrompt();
+					break;
+				case 'Delete a role':
+					deleteRolePrompt();
+					break;
+				case 'Delete an employee':
+					deleteEmployeePrompt();
+					break;
 				case 'Exit':
 					console.log('Goodbye!');
 					process.exit();
@@ -73,8 +89,8 @@ const mainMenu = () => {
 const viewEmployeesByManagerPrompt = () => {
 	viewAllEmployees().then((employees) => {
 		const managerChoices = employees.map((manager) => ({
-			name: `${manager.first_name} ${manager.last_name}`,
-			value: manager.id,
+			name: `${manager[EMPLOYEE.first]} ${manager[EMPLOYEE.last]}`,
+			value: manager[EMPLOYEE.id],
 		}));
 
 		inquirer
@@ -100,8 +116,8 @@ const viewEmployeesByManagerPrompt = () => {
 const viewEmployeesByDepartmentPrompt = () => {
 	viewAllDepartments().then((departments) => {
 		const departmentChoices = departments.map((dept) => ({
-			name: dept.name,
-			value: dept.id,
+			name: dept[DEPARTMENT.department],
+			value: dept[DEPARTMENT.id],
 		}));
 
 		inquirer
@@ -127,8 +143,8 @@ const viewEmployeesByDepartmentPrompt = () => {
 const viewDepartmentBudgetPrompt = () => {
 	viewAllDepartments().then((departments) => {
 		const departmentChoices = departments.map((dept) => ({
-			name: dept.name,
-			value: dept.id,
+			name: dept[DEPARTMENT.department],
+			value: dept[DEPARTMENT.id],
 		}));
 
 		inquirer
@@ -151,8 +167,10 @@ const viewDepartmentBudgetPrompt = () => {
 };
 
 // Add department prompt
-const addDepartmentPrompt = () => {
-	inquirer
+const addDepartmentPrompt = async (createRole = false) => {
+	await viewAllDepartments();
+
+	return inquirer
 		.prompt([
 			{
 				type: 'input',
@@ -163,105 +181,237 @@ const addDepartmentPrompt = () => {
 			},
 		])
 		.then((answer) => {
-			addDepartment(answer.name).then(mainMenu);
+			return addDepartment(answer.name).then((id) => {
+				if (createRole) return id;
+				return mainMenu();
+			});
 		});
 };
 
 // Add role prompt
-const addRolePrompt = () => {
-	viewAllDepartments().then((departments) => {
-		const departmentChoices = departments.map((dept) => ({
-			name: dept.name,
-			value: dept.id,
-		}));
+const addRolePrompt = async (createEmployee = false) => {
+	const departments = await viewAllDepartments(false);
+	const departmentChoices = departments.map((dept) => ({
+		name: dept.department,
+		value: dept.id,
+	}));
+	await viewAllRoles();
 
-		inquirer
-			.prompt([
-				{
-					type: 'input',
-					name: 'title',
-					message: 'Enter the title of the new role:',
-					validate: (input) =>
-						input ? true : 'Role title cannot be empty.',
-				},
-				{
-					type: 'input',
-					name: 'salary',
-					message: 'Enter the salary for the new role:',
-					validate: (input) =>
-						!isNaN(input) && input
-							? true
-							: 'Please enter a valid number.',
-				},
-				{
-					type: 'list',
-					name: 'department_id',
-					message: 'Select the department for the new role:',
-					choices: departmentChoices,
-				},
-			])
-			.then((role) => {
-				addRole(role.title, role.salary, role.department_id).then(
-					mainMenu
-				);
+	return inquirer
+
+		.prompt([
+			{
+				type: 'input',
+				name: 'title',
+				message: 'Enter the title of the new role:',
+				validate: (input) =>
+					input ? true : 'Role title cannot be empty.',
+			},
+			{
+				type: 'input',
+				name: 'salary',
+				message: 'Enter the salary for the new role:',
+				validate: (input) =>
+					!isNaN(input) && input
+						? true
+						: 'Please enter a valid number.',
+			},
+			{
+				type: 'list',
+				name: 'department_id',
+				message: 'Select the department for the new role:',
+				choices: [
+					...departmentChoices,
+					{
+						name: 'Create new department',
+						value: null,
+					},
+				],
+			},
+		])
+		.then(async (role) => {
+			let departmentId = role.department_id;
+			if (role.department_id === null) {
+				departmentId = await addDepartmentPrompt(true);
+			}
+			return addRole(role.title, role.salary, departmentId).then((id) => {
+				if (createEmployee) {
+					return id;
+				} else {
+					return mainMenu();
+				}
 			});
-	});
+		});
 };
 
 // Add employee prompt
 const addEmployeePrompt = () => {
 	viewAllRoles().then((roles) => {
 		const roleChoices = roles.map((role) => ({
-			name: role.title,
-			value: role.id,
+			name: role[ROLE.role],
+			value: role[ROLE.id],
 		}));
 
-		viewAllEmployees().then((managers) => {
+		viewAllEmployees().then(async (managers) => {
 			const managerChoices = managers.map((manager) => ({
-				name: `${manager.first_name} ${manager.last_name}`,
-				value: manager.id,
+				name: `${manager[EMPLOYEE.first]} ${manager[EMPLOYEE.last]}`,
+				value: manager[EMPLOYEE.id],
 			}));
+
 			managerChoices.push({ name: 'None', value: null });
 
-			inquirer
-				.prompt([
-					{
-						type: 'input',
-						name: 'firstName',
-						message: "Enter the employee's first name:",
-						validate: (input) =>
-							input ? true : 'First name cannot be empty.',
-					},
-					{
-						type: 'input',
-						name: 'lastName',
-						message: "Enter the employee's last name:",
-						validate: (input) =>
-							input ? true : 'Last name cannot be empty.',
-					},
-					{
-						type: 'list',
-						name: 'role_id',
-						message: "Select the employee's role:",
-						choices: roleChoices,
-					},
-					{
-						type: 'list',
-						name: 'manager_id',
-						message: "Select the employee's manager (if any):",
-						choices: managerChoices,
-					},
-				])
-				.then((employee) => {
-					addEmployee(
-						employee.firstName,
-						employee.lastName,
-						employee.role_id,
-						employee.manager_id
-					).then(mainMenu);
-				});
+			const employee = await inquirer.prompt([
+				{
+					type: 'input',
+					name: 'firstName',
+					message: "Enter the employee's first name:",
+					validate: (input) =>
+						input ? true : 'First name cannot be empty.',
+				},
+				{
+					type: 'input',
+					name: 'lastName',
+					message: "Enter the employee's last name:",
+					validate: (input) =>
+						input ? true : 'Last name cannot be empty.',
+				},
+				{
+					type: 'list',
+					name: 'role_id',
+					message: "Select the employee's role:",
+					choices: [
+						...roleChoices,
+						{
+							name: 'Create new role',
+							value: null,
+						},
+					],
+				},
+				// {
+				// 	type: 'list',
+				// 	name: 'manager_id',
+				// 	message: "Select the employee's manager (if any):",
+				// 	choices: managerChoices,
+				// },
+			]);
+
+			let role = employee.role_id;
+
+			if (employee.role_id === null) {
+				role = await addRolePrompt(true);
+			}
+
+			const createRole = await inquirer.prompt([
+				{
+					type: 'list',
+					name: 'manager_id',
+					message: "Select the employee's manager (if any):",
+					choices: managerChoices,
+				},
+			]);
+			await addEmployee(
+				employee.firstName,
+				employee.lastName,
+				role,
+				createRole.manager_id
+			);
+			mainMenu();
 		});
 	});
+};
+
+const deleteDepartmentPrompt = async () => {
+	const departments = await viewAllDepartments();
+	const departmentChoices = departments.map((dept) => ({
+		name: dept.department,
+		value: dept.id,
+	}));
+
+	return inquirer
+		.prompt([
+			{
+				type: 'list',
+				name: 'department_id',
+				message: 'Select the department:',
+				choices: departmentChoices,
+			},
+		])
+		.then(async (answer) => {
+			const isConfirmedResponse = await inquirer.prompt([
+				{
+					type: 'confirm',
+					name: 'is_confirm',
+					message:
+						'Deleting a department will also delete employees and their roles, continue?',
+				},
+			]);
+			if (isConfirmedResponse.is_confirm)
+				return deleteDepartmentCascade(answer.department_id).then(
+					mainMenu
+				);
+			return mainMenu();
+		});
+};
+
+const deleteRolePrompt = async () => {
+	const roles = await viewAllRoles();
+	const roleChoices = roles.map((role) => ({
+		name: role[ROLE.role],
+		value: role[ROLE.id],
+	}));
+
+	return inquirer
+		.prompt([
+			{
+				type: 'list',
+				name: 'role_id',
+				message: 'Select the role:',
+				choices: roleChoices,
+			},
+		])
+		.then(async (answer) => {
+			const isConfirmedResponse = await inquirer.prompt([
+				{
+					type: 'confirm',
+					name: 'is_confirm',
+					message:
+						'Deleting a role will also delete thier employees, continue?',
+				},
+			]);
+			if (isConfirmedResponse.is_confirm)
+				return deleteRole(answer.role_id).then(mainMenu);
+			return mainMenu();
+		});
+};
+
+const deleteEmployeePrompt = async () => {
+	const employees = await viewAllEmployees();
+	const employeeChoices = employees.map((manager) => ({
+		name: `${manager[EMPLOYEE.first]} ${manager[EMPLOYEE.last]}`,
+		value: manager[EMPLOYEE.id],
+	}));
+
+	return inquirer
+		.prompt([
+			{
+				type: 'list',
+				name: 'employee_id',
+				message: 'Select the employee:',
+				choices: employeeChoices,
+			},
+		])
+		.then(async (answer) => {
+			const isConfirmedResponse = await inquirer.prompt([
+				{
+					type: 'confirm',
+					name: 'is_confirm',
+					message: 'Deleting an employee, continue?',
+				},
+			]);
+			if (isConfirmedResponse.is_confirm)
+				return deleteEmployee(answer.employee_id).then(mainMenu);
+			return mainMenu();
+		});
 };
 
 // Start the application
