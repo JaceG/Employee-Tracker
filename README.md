@@ -46,7 +46,7 @@ Credits: This project was created as part of a coding bootcamp challenge. - Sour
 
 ## Screenshots
 
-![Application Screenshot](./assets/images/Employee-Tracker-Screenshot.jpg)
+![Application Screenshot](./Assets/images/Employee-Tracker-Screenshot.jpg)
 
 ## Screenrecording Video
 
