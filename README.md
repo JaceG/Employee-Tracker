@@ -44,6 +44,11 @@ For any questions, please contact me at jace.galloway@gmail.com. You can also fi
 
 Credits: This project was created as part of a coding bootcamp challenge. - Sources and References: Portions of the code and guidance were provided with assistance from ChatGPT, Tutors, and my Instructors.
 
+## Screenshots
+
+![Application Screenshot](./assets/images/Employee-Tracker-Screenshot.jpg)
+
 ## Screenrecording Video
 
 https://drive.google.com/file/d/1-R0VelQKpWMN0sdLVESm9cEtdQnMI7fh/view?usp=sharing
+
